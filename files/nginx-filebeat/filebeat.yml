@@ -6,8 +6,3 @@ filebeat.inputs:
 
 output.logstash:
   hosts: ["elasticsearch:5044"]
-
-# output.elasticsearch:
-#   hosts: ["http://elasticsearch:9200"]
-#   username: "elastic"
-#   password: "changeme"
