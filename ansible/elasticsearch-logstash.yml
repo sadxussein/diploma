@@ -1,0 +1,104 @@
+- name: Configure Elasticsearch
+  hosts: elasticsearch
+  become: yes
+  tasks:
+    - name: Configure APT to use Squid proxy
+      lineinfile:
+        path: /etc/apt/apt.conf.d/01proxy
+        line: 'Acquire::http::Proxy "http://bastion:8888";'
+        create: yes
+
+    - name: Set HTTP_PROXY environment variable
+      lineinfile:
+        path: /etc/environment
+        regexp: '^HTTP_PROXY='
+        line: 'HTTP_PROXY=http://bastion:8888'
+        state: present
+
+    - name: Set HTTPS_PROXY environment variable
+      lineinfile:
+        path: /etc/environment
+        regexp: '^HTTPS_PROXY='
+        line: 'HTTPS_PROXY=http://bastion:8888'
+        state: present
+
+    - name: Set NO_PROXY environment variable
+      lineinfile:
+        path: /etc/environment
+        regexp: '^NO_PROXY='
+        line: 'NO_PROXY=localhost,127.0.0.1'
+        state: present
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+      
+    - name: Upgrade apt
+      apt:
+        upgrade: dist
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Start docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Install docker compose
+      get_url:
+        url: https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    - name: create target folder
+      file:
+        path: /home/xussein/yc/soft/
+        state: directory
+        mode: '0755'
+
+    - name: Copy elasticsearch docker image tar to host
+      copy:
+        src: /home/xussein/yc/soft/elasticsearch.tar
+        dest: /home/xussein/yc/soft/elasticsearch.tar
+      
+    - name: Load elasticsearch image to docker
+      command: docker load -i /home/xussein/yc/soft/elasticsearch.tar
+
+    - name: Copy logstash docker image tar to host
+      copy:
+        src: /home/xussein/yc/soft/logstash.tar
+        dest: /home/xussein/yc/soft/logstash.tar
+      
+    - name: Load logstash image to docker
+      command: docker load -i /home/xussein/yc/soft/logstash.tar
+
+    - name: Copy files to host
+      copy:
+        src: /home/xussein/yc/files/elasticsearch-logstash/
+        dest: /home/xussein/yc/files/elasticsearch-logstash
+    
+    - name: Run elasticsearch and logstash containers
+      shell: 
+        cmd: "docker-compose -f /home/xussein/yc/files/elasticsearch-logstash/docker-compose.yml up -d"
+      
+    - name: Install Zabbix Agent
+      apt:
+        name: zabbix-agent
+        state: present
+
+    - name: Configure Zabbix Agent
+      lineinfile:
+        path: /etc/zabbix/zabbix_agentd.conf
+        regexp: '^Server='
+        line: 'Server=zabbix'
+        state: present
+
+    - name: Ensure Zabbix agent is restarted
+      service:
+        name: zabbix-agent
+        state: restarted
+        enabled: true

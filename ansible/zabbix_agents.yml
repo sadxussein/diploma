@@ -1,0 +1,22 @@
+- name: Configure Zabbix Agents
+  hosts: all_except_zabbix_bastion
+  serial: 1
+  become: yes
+  tasks:
+    - name: Install Zabbix Agent
+      apt:
+        name: zabbix-agent
+        state: present
+
+    - name: Configure Zabbix Agent
+      lineinfile:
+        path: /etc/zabbix/zabbix_agentd.conf
+        regexp: '^Server='
+        line: 'Server=zabbix'
+        state: present
+
+    - name: Ensure Zabbix agent is running
+      service:
+        name: zabbix-agent
+        state: started
+        enabled: true

@@ -1,0 +1,61 @@
+---
+- hosts: bastion
+  become: yes
+  tasks:
+    - name: Add user ssh key
+      copy:
+        src:
+          /home/xussein/.ssh/id_rsa_nopasswd
+        dest:
+          /home/xussein/.ssh/id_rsa_nopasswd
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+      
+    - name: Upgrade apt
+      apt:
+        upgrade: dist
+
+    - name: Install Squid
+      apt:
+        name: squid
+        state: present
+
+    - name: Preserve original Squid .conf file
+      command: mv /etc/squid/squid.conf /etc/squid/squid.conf.backup
+
+    - name: Configure Squid to allow apt access from local network
+      blockinfile:
+        path: /etc/squid/squid.conf
+        create: yes
+        block: |
+          acl private-a src 10.0.2.0/24
+          acl private-b src 10.0.3.0/24
+          http_access allow private-a
+          http_access allow private-b
+          http_port 8888
+
+    - name: Restart Squid
+      systemd:
+        name: squid
+        state: restarted
+        enabled: yes
+
+    - name: Install Zabbix Agent
+      apt:
+        name: zabbix-agent
+        state: present
+
+    - name: Configure Zabbix Agent
+      lineinfile:
+        path: /etc/zabbix/zabbix_agentd.conf
+        regexp: '^Server='
+        line: 'Server=zabbix'
+        state: present
+
+    - name: Ensure Zabbix agent is restarted
+      service:
+        name: zabbix-agent
+        state: restarted
+        enabled: true

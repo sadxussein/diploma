@@ -1,0 +1,107 @@
+- name: Configure Zabbix Server
+  hosts: zabbix
+  become: yes
+  tasks:
+    - name: Create dest dir for zabbix deb
+      file:
+        path: /home/xussein/yc/soft
+        state: directory
+        mode: '0755'
+
+    - name:
+      get_url:
+        url: https://repo.zabbix.com/zabbix/7.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_7.0-1+ubuntu22.04_all.deb
+        dest: /home/xussein/yc/soft/zabbix-release_7.0-1+ubuntu22.04_all.deb
+        mode: '0644'    
+
+    - name: Install Zabbix Server
+      apt:
+        deb: /home/xussein/yc/soft/zabbix-release_7.0-1+ubuntu22.04_all.deb
+        update_cache: yes      
+
+    - name: Install Zabbix Frontend, server, agent and mysql
+      apt:
+        name: 
+          - zabbix-server-mysql
+          - zabbix-frontend-php
+          - zabbix-apache-conf
+          - zabbix-sql-scripts
+          - zabbix-agent
+          - mysql-server
+          - apache2
+          - pip
+        state: present
+        update_cache: yes
+
+    - name: start and enable mysql service
+      systemd:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Install PyMySQL module
+      pip:
+        name: pymysql
+
+    - name: reset mysql root password
+      mysql_user:
+        name: root
+        password: password
+        host: localhost
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        check_implicit_admin: yes
+
+    - name: create /root/.my.cnf with MySQL root credentials
+      copy:
+        content: |
+          [client]
+          user=root
+          password=password
+          host=localhost
+        dest: /root/.my.cnf
+        owner: root
+        group: root
+        mode: '0600'    
+
+    - name: create zabbix database
+      mysql_db:
+        name: zabbix
+        encoding: utf8mb4
+        collation: utf8mb4_bin
+        state: present
+
+    - name: create zabbix database user
+      mysql_user:
+        name: zabbix
+        host: localhost
+        password: password
+        priv: "zabbix.*:ALL"
+        state: present
+
+    - name: set global log_bin_trust_function_creators to 1
+      mysql_query:
+        query: "SET GLOBAL log_bin_trust_function_creators = 1" 
+
+    - name: Unpack and import Zabbix database schema
+      shell: zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | mysql --default-character-set=utf8mb4 -u zabbix -ppassword zabbix
+      args:
+        executable: /bin/bash
+
+    - name: set global log_bin_trust_function_creators to 0
+      mysql_query:
+        query: "SET GLOBAL log_bin_trust_function_creators = 0" 
+      
+    - name: set zabbix db password
+      lineinfile:
+        path: /etc/zabbix/zabbix_server.conf
+        regexp: "^# DBPassword="
+        line: "DBPassword=password"
+
+    - name: restart zabbix services
+      systemd:
+        service: "{{ item }}"
+        state: restarted
+      with_items:
+        - zabbix-server
+        - zabbix-agent
+        - apache2
