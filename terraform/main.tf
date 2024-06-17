@@ -189,45 +189,6 @@ resource "yandex_vpc_security_group" "bastion" {
 }
 
 # ------------------------------------------ VIRTUAL MACHINES -----------------------------------------
-# resource "yandex_compute_instance" "vm" {
-#   for_each = {
-#     "bastion" = { name = "bastion", zone = "ru-central1-a", hostname = "bastion", subnet_id = yandex_vpc_subnet.public.id},
-#     "web-server-1" = { name = "web-server-1", zone = "ru-central1-a", hostname = "web-server-1", subnet_id = yandex_vpc_subnet.private-a.id},
-#     "web-server-2" = { name = "web-server-2", zone = "ru-central1-b", hostname = "web-server-2", subnet_id = yandex_vpc_subnet.private-b.id},
-#     "elasticsearch" = { name = "elasticsearch", zone = "ru-central1-a", hostname = "elasticsearch", subnet_id = yandex_vpc_subnet.private-a.id},
-#     "kibana" = { name = "kibana", zone = "ru-central1-a", hostname = "kibana", subnet_id = yandex_vpc_subnet.public.id},
-#     "zabbix" = { name = "zabbix", zone = "ru-central1-a", hostname = "zabbix", subnet_id = yandex_vpc_subnet.public.id},
-#   }
-
-#   name = each.value.name  
-#   hostname = each.value.hostname
-#   zone = each.value.zone  
-#   platform_id = "standart-v2"
-
-#   resources {
-#     cores  = 2
-#     memory = 2
-#   }
-
-#   boot_disk {
-#     initialize_params {
-#       image_id = "fd8re3hiqnikqr7j7m8s"  # Ubuntu 22.04 LTS
-#     }
-#   }
-
-#   network_interface {
-#     subnet_id = each.value.subnet_id
-#     nat       = true
-#   }
-
-#   scheduling_policy {
-#     preemptible = true
-#   }
-
-#   metadata = {
-#     ssh-keys = "xussein:${file(var.ssh_public_key_path)}"
-#   }
-# }
 # Bastion Host
 resource "yandex_compute_instance" "bastion" {
   name        = "bastion"
@@ -240,7 +201,6 @@ resource "yandex_compute_instance" "bastion" {
   boot_disk {
     initialize_params {
       image_id = "fd8re3hiqnikqr7j7m8s"  # Ubuntu 22.04 LTS
-      # image_id = "fd806u1okplml22f4pmo"  # Ubuntu 22.04 LTS NAT
     }
   }
   network_interface {
